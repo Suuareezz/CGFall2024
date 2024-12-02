@@ -111,44 +111,25 @@ void drawRoof() {
 void drawFloor(float y) {
     applyMaterial(&materials[currentMaterial]);
     
-    // Draw walls
     glPushMatrix();
     glTranslatef(0, y, 0);
     
-    // Front wall with windows
+    // Draw all walls as complete quads for each floor
     glBegin(GL_QUADS);
+    // Front wall
     glNormal3f(0, 0, 1);
     glVertex3f(-buildingWidth/2, 0, buildingLength/2);
     glVertex3f(buildingWidth/2, 0, buildingLength/2);
     glVertex3f(buildingWidth/2, floorHeight, buildingLength/2);
     glVertex3f(-buildingWidth/2, floorHeight, buildingLength/2);
-    glEnd();
     
-    // Draw windows on front wall
-    if (showWindows) {
-        float xStart = -buildingWidth/2 + windowSpacing;
-        float xEnd = buildingWidth/2 - windowSpacing;
-        float windowY = y + (floorHeight - windowHeight)/2;
-        
-        for (float x = xStart; x <= xEnd; x += windowSpacing + windowWidth) {
-            glPushMatrix();
-            glTranslatef(x, windowY, buildingLength/2);
-            drawWindow();
-            glPopMatrix();
-        }
-    }
-    
-    // Back wall with windows
-    glBegin(GL_QUADS);
+    // Back wall
     glNormal3f(0, 0, -1);
     glVertex3f(-buildingWidth/2, 0, -buildingLength/2);
     glVertex3f(buildingWidth/2, 0, -buildingLength/2);
     glVertex3f(buildingWidth/2, floorHeight, -buildingLength/2);
     glVertex3f(-buildingWidth/2, floorHeight, -buildingLength/2);
-    glEnd();
     
-    // Side walls
-    glBegin(GL_QUADS);
     // Left wall
     glNormal3f(-1, 0, 0);
     glVertex3f(-buildingWidth/2, 0, -buildingLength/2);
@@ -162,7 +143,67 @@ void drawFloor(float y) {
     glVertex3f(buildingWidth/2, 0, buildingLength/2);
     glVertex3f(buildingWidth/2, floorHeight, buildingLength/2);
     glVertex3f(buildingWidth/2, floorHeight, -buildingLength/2);
+    
+    // Floor (bottom)
+    glNormal3f(0, -1, 0);
+    glVertex3f(-buildingWidth/2, 0, -buildingLength/2);
+    glVertex3f(buildingWidth/2, 0, -buildingLength/2);
+    glVertex3f(buildingWidth/2, 0, buildingLength/2);
+    glVertex3f(-buildingWidth/2, 0, buildingLength/2);
+    
+    // Ceiling (top)
+    glNormal3f(0, 1, 0);
+    glVertex3f(-buildingWidth/2, floorHeight, -buildingLength/2);
+    glVertex3f(buildingWidth/2, floorHeight, -buildingLength/2);
+    glVertex3f(buildingWidth/2, floorHeight, buildingLength/2);
+    glVertex3f(-buildingWidth/2, floorHeight, buildingLength/2);
     glEnd();
+    
+    // Draw windows after walls
+    if (showWindows) {
+        float xStart = -buildingWidth/2 + windowSpacing;
+        float xEnd = buildingWidth/2 - windowSpacing;
+        float windowY = (floorHeight - windowHeight)/2;
+        
+        // Front windows
+        for (float x = xStart; x <= xEnd; x += windowSpacing + windowWidth) {
+            glPushMatrix();
+            glTranslatef(x, windowY, buildingLength/2);
+            drawWindow();
+            glPopMatrix();
+        }
+        
+        // Back windows
+        for (float x = xStart; x <= xEnd; x += windowSpacing + windowWidth) {
+            glPushMatrix();
+            glTranslatef(x, windowY, -buildingLength/2);
+            glRotatef(180, 0, 1, 0);
+            drawWindow();
+            glPopMatrix();
+        }
+        
+        // Side windows (if building is wide enough)
+        float zStart = -buildingLength/2 + windowSpacing;
+        float zEnd = buildingLength/2 - windowSpacing;
+        
+        // Left side windows
+        for (float z = zStart; z <= zEnd; z += windowSpacing + windowWidth) {
+            glPushMatrix();
+            glTranslatef(-buildingWidth/2, windowY, z);
+            glRotatef(90, 0, 1, 0);
+            drawWindow();
+            glPopMatrix();
+        }
+        
+        // Right side windows
+        for (float z = zStart; z <= zEnd; z += windowSpacing + windowWidth) {
+            glPushMatrix();
+            glTranslatef(buildingWidth/2, windowY, z);
+            glRotatef(-90, 0, 1, 0);
+            drawWindow();
+            glPopMatrix();
+        }
+    }
     
     glPopMatrix();
 }
