@@ -146,6 +146,93 @@ bool mouseLeftDown = false;
 bool mouseRightDown = false;
 int mouseX = 0, mouseY = 0;
 
+bool advancedLighting = false;
+bool shadowsEnabled = false;
+
+// Add light toggle function
+void toggleAdvancedLighting() {
+    advancedLighting = !advancedLighting;
+    
+    if (advancedLighting) {
+        // Enhanced lighting settings
+        glEnable(GL_LIGHTING);
+        glEnable(GL_LIGHT0);
+        glEnable(GL_LIGHT1);  // Additional light source
+        
+        // Main light (sun-like)
+        GLfloat lightPos[] = {100.0f, 100.0f, 100.0f, 1.0f};
+        GLfloat lightAmbient[] = {0.3f, 0.3f, 0.3f, 1.0f};
+        GLfloat lightDiffuse[] = {1.0f, 1.0f, 0.9f, 1.0f};  // Slightly warm
+        GLfloat lightSpecular[] = {1.0f, 1.0f, 1.0f, 1.0f};
+        
+        glLightfv(GL_LIGHT0, GL_POSITION, lightPos);
+        glLightfv(GL_LIGHT0, GL_AMBIENT, lightAmbient);
+        glLightfv(GL_LIGHT0, GL_DIFFUSE, lightDiffuse);
+        glLightfv(GL_LIGHT0, GL_SPECULAR, lightSpecular);
+        
+        // Secondary light (fill light)
+        GLfloat light1Pos[] = {-50.0f, 50.0f, -50.0f, 1.0f};
+        GLfloat light1Ambient[] = {0.1f, 0.1f, 0.1f, 1.0f};
+        GLfloat light1Diffuse[] = {0.4f, 0.4f, 0.5f, 1.0f};  // Slightly cool
+        GLfloat light1Specular[] = {0.3f, 0.3f, 0.3f, 1.0f};
+        
+        glLightfv(GL_LIGHT1, GL_POSITION, light1Pos);
+        glLightfv(GL_LIGHT1, GL_AMBIENT, light1Ambient);
+        glLightfv(GL_LIGHT1, GL_DIFFUSE, light1Diffuse);
+        glLightfv(GL_LIGHT1, GL_SPECULAR, light1Specular);
+        
+        // Enable shadows
+        shadowsEnabled = true;
+        
+        // Material properties for better lighting
+        GLfloat matAmbient[] = {0.7f, 0.7f, 0.7f, 1.0f};
+        GLfloat matDiffuse[] = {0.8f, 0.8f, 0.8f, 1.0f};
+        GLfloat matSpecular[] = {0.5f, 0.5f, 0.5f, 1.0f};
+        GLfloat matShininess[] = {50.0f};
+        
+        glMaterialfv(GL_FRONT, GL_AMBIENT, matAmbient);
+        glMaterialfv(GL_FRONT, GL_DIFFUSE, matDiffuse);
+        glMaterialfv(GL_FRONT, GL_SPECULAR, matSpecular);
+        glMaterialfv(GL_FRONT, GL_SHININESS, matShininess);
+        
+    } else {
+        // Basic lighting settings
+        glDisable(GL_LIGHT1);
+        
+        // Reset to basic light
+        GLfloat basicLight[] = {0.7f, 0.7f, 0.7f, 1.0f};
+        GLfloat basicPos[] = {1.0f, 1.0f, 1.0f, 0.0f};
+        
+        glLightfv(GL_LIGHT0, GL_POSITION, basicPos);
+        glLightfv(GL_LIGHT0, GL_AMBIENT, basicLight);
+        glLightfv(GL_LIGHT0, GL_DIFFUSE, basicLight);
+        
+        // Disable shadows
+        shadowsEnabled = false;
+        
+        // Reset material properties
+        GLfloat basicMaterial[] = {0.8f, 0.8f, 0.8f, 1.0f};
+        glMaterialfv(GL_FRONT, GL_AMBIENT_AND_DIFFUSE, basicMaterial);
+    }
+}
+
+void applyMaterial(Material* mat) {
+    glMaterialfv(GL_FRONT, GL_AMBIENT, mat->ambient);
+    glMaterialfv(GL_FRONT, GL_DIFFUSE, mat->diffuse);
+    glMaterialfv(GL_FRONT, GL_SPECULAR, mat->specular);
+    glMaterialf(GL_FRONT, GL_SHININESS, mat->shininess);
+}
+
+void drawWindow() {
+    applyMaterial(&materials[2]); // Glass material
+    glBegin(GL_QUADS);
+    glVertex3f(-windowWidth/2, 0, 0.01f);
+    glVertex3f(windowWidth/2, 0, 0.01f);
+    glVertex3f(windowWidth/2, windowHeight, 0.01f);
+    glVertex3f(-windowWidth/2, windowHeight, 0.01f);
+    glEnd();
+}
+
 // Function to load a texture
 GLuint loadTexture(const char* filename) {
     GLuint textureID;
@@ -281,14 +368,6 @@ void drawWindowStyle(WindowStyle style) {
     }
 }
 
-
-void applyMaterial(Material* mat) {
-    glMaterialfv(GL_FRONT, GL_AMBIENT, mat->ambient);
-    glMaterialfv(GL_FRONT, GL_DIFFUSE, mat->diffuse);
-    glMaterialfv(GL_FRONT, GL_SPECULAR, mat->specular);
-    glMaterialf(GL_FRONT, GL_SHININESS, mat->shininess);
-}
-
 void drawSteps() {
     applyMaterial(&materials[0]); // Use concrete material for stairs
     
@@ -353,15 +432,7 @@ void drawStaircase(float y) {
     glPopMatrix();
 }
 
-void drawWindow() {
-    applyMaterial(&materials[2]); // Glass material
-    glBegin(GL_QUADS);
-    glVertex3f(-windowWidth/2, 0, 0.01f);
-    glVertex3f(windowWidth/2, 0, 0.01f);
-    glVertex3f(windowWidth/2, windowHeight, 0.01f);
-    glVertex3f(-windowWidth/2, windowHeight, 0.01f);
-    glEnd();
-}
+
 
 void drawRoof() {
     if (!showRoof) return;
@@ -574,24 +645,51 @@ void drawBuilding() {
     drawRoof();
     glPopMatrix();
 }
-
 void display() {
+    // First handle shadow pass if enabled
+    if (shadowsEnabled) {
+        // First pass: Render from light's perspective (shadow map)
+        glBindFramebuffer(GL_FRAMEBUFFER, shadowMapFBO);
+        glClear(GL_DEPTH_BUFFER_BIT);
+        glViewport(0, 0, SHADOW_MAP_SIZE, SHADOW_MAP_SIZE);
+        
+        // Set up light's perspective matrix
+        glMatrixMode(GL_PROJECTION);
+        glLoadIdentity();
+        gluPerspective(45.0f, 1.0f, 1.0f, 200.0f);
+        glMatrixMode(GL_MODELVIEW);
+        glLoadIdentity();
+        gluLookAt(mainLight.position[0], mainLight.position[1], mainLight.position[2],
+                  0.0f, 0.0f, 0.0f,
+                  0.0f, 1.0f, 0.0f);
+        
+        // Render scene for shadow map
+        drawBuilding();
+        
+        // Second pass: Regular rendering with shadows
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    }
+    
+    // Normal rendering pass
+    glViewport(0, 0, glutGet(GLUT_WINDOW_WIDTH), glutGet(GLUT_WINDOW_HEIGHT));
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    
+    // Set up camera view
+    glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
+    gluPerspective(30.0f, (float)glutGet(GLUT_WINDOW_WIDTH)/glutGet(GLUT_WINDOW_HEIGHT), 0.1f, 500.0f);
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
+    
+    // Calculate camera position
     float camX = cameraDistance * sin(cameraAngleY) * cos(cameraAngleX);
-    float camY = cameraDistance * sin(cameraAngleX) + (buildingHeight / 2.0f); // Center vertically on building
+    float camY = cameraDistance * sin(cameraAngleX) + (buildingHeight / 2.0f);
     float camZ = cameraDistance * cos(cameraAngleY) * cos(cameraAngleX);
     
-    // Look at the center of the building
+    // Set camera
     gluLookAt(camX, camY, camZ,
-              0, buildingHeight / 2.0f, 0,  // Look at center of building
+              0, buildingHeight / 2.0f, 0,
               0, 1, 0);
-    // Set camera position
-    /* gluLookAt(cameraDistance * sin(cameraAngleY) * cos(cameraAngleX),
-              cameraDistance * sin(cameraAngleX),
-              cameraDistance * cos(cameraAngleY) * cos(cameraAngleX),
-              0, buildingHeight/2, 0,
-              0, 1, 0); */
     
     // Draw coordinate axes
     glDisable(GL_LIGHTING);
@@ -600,10 +698,24 @@ void display() {
     glColor3f(0,1,0); glVertex3f(0,0,0); glVertex3f(0,10,0);
     glColor3f(0,0,1); glVertex3f(0,0,0); glVertex3f(0,0,10);
     glEnd();
-    glEnable(GL_LIGHTING);
     
+    // Enable lighting for the building
+    if (advancedLighting) {
+        glEnable(GL_LIGHTING);
+        
+        // Apply shadow texture if enabled
+        if (shadowsEnabled) {
+            glActiveTexture(GL_TEXTURE1);
+            glBindTexture(GL_TEXTURE_2D, shadowMapTexture);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE_ARB, GL_COMPARE_R_TO_TEXTURE_ARB);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_FUNC_ARB, GL_LEQUAL);
+        }
+    }
+    
+    // Draw the building
     drawBuilding();
     
+    // Single buffer swap at the end
     glutSwapBuffers();
 }
 
@@ -700,7 +812,8 @@ void keyboard(unsigned char key, int x, int y) {
             
         case 'l':
         case 'L':
-            // Toggle advanced lighting
+            toggleAdvancedLighting();
+            printf("Advanced Lighting: %s\n", advancedLighting ? "ON" : "OFF");
             break;
         case 27: // ESC key
             exit(0);
