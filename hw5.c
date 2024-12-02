@@ -30,7 +30,7 @@ bool showRightWall = true;
 bool showAllWalls = true;
 
 // Camera parameters
-float cameraDistance = 20.0f;
+float cameraDistance = 50.0f;
 float cameraAngleX = 0.0f;
 float cameraAngleY = 0.0f;
 
@@ -256,13 +256,20 @@ void drawBuilding() {
 void display() {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glLoadIdentity();
+    float camX = cameraDistance * sin(cameraAngleY) * cos(cameraAngleX);
+    float camY = cameraDistance * sin(cameraAngleX) + (buildingHeight / 2.0f); // Center vertically on building
+    float camZ = cameraDistance * cos(cameraAngleY) * cos(cameraAngleX);
     
+    // Look at the center of the building
+    gluLookAt(camX, camY, camZ,
+              0, buildingHeight / 2.0f, 0,  // Look at center of building
+              0, 1, 0);
     // Set camera position
-    gluLookAt(cameraDistance * sin(cameraAngleY) * cos(cameraAngleX),
+    /* gluLookAt(cameraDistance * sin(cameraAngleY) * cos(cameraAngleX),
               cameraDistance * sin(cameraAngleX),
               cameraDistance * cos(cameraAngleY) * cos(cameraAngleX),
               0, buildingHeight/2, 0,
-              0, 1, 0);
+              0, 1, 0); */
     
     // Draw coordinate axes
     glDisable(GL_LIGHTING);
@@ -282,7 +289,7 @@ void reshape(int w, int h) {
     glViewport(0, 0, w, h);
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
-    gluPerspective(45.0f, (float)w/h, 0.1f, 100.0f);
+    gluPerspective(30.0f, (float)w/h, 0.1f, 500.0f);
     glMatrixMode(GL_MODELVIEW);
 }
 
@@ -304,19 +311,22 @@ void motionFunc(int x, int y) {
         cameraAngleY += (x - mouseX) * 0.01f;
         cameraAngleX += (y - mouseY) * 0.01f;
         
-        if(cameraAngleX > 1.5f) cameraAngleX = 1.5f;
-        if(cameraAngleX < -1.5f) cameraAngleX = -1.5f;
+        // Adjusted angle limits
+        if(cameraAngleX > 1.2f) cameraAngleX = 1.2f;
+        if(cameraAngleX < -1.2f) cameraAngleX = -1.2f;
     }
     else if(mouseRightDown) {
-        cameraDistance += (y - mouseY) * 0.1f;
-        if(cameraDistance < 5.0f) cameraDistance = 5.0f;
-        if(cameraDistance > 50.0f) cameraDistance = 50.0f;
+        cameraDistance += (y - mouseY) * 0.5f;
+        // Adjusted zoom limits
+        if(cameraDistance < 20.0f) cameraDistance = 20.0f;
+        if(cameraDistance > 200.0f) cameraDistance = 200.0f;
     }
     
     mouseX = x;
     mouseY = y;
     glutPostRedisplay();
 }
+
 
 void keyboard(unsigned char key, int x, int y) {
     switch(key) {
