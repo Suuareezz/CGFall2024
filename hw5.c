@@ -33,6 +33,8 @@ bool showAllWalls = true;
 float cameraDistance = 50.0f;
 float cameraAngleX = 0.0f;
 float cameraAngleY = 0.0f;
+GLfloat globalAmbient[] = {0.2f, 0.2f, 0.2f, 1.0f};
+bool lightingEnabled = true;
 
 // Texture IDs
 GLuint brickTexture;
@@ -146,7 +148,7 @@ bool mouseLeftDown = false;
 bool mouseRightDown = false;
 int mouseX = 0, mouseY = 0;
 
-bool advancedLighting = false;
+bool advancedLighting = true;
 bool shadowsEnabled = false;
 
 // Add light toggle function
@@ -157,12 +159,12 @@ void toggleAdvancedLighting() {
         // Enhanced lighting settings
         glEnable(GL_LIGHTING);
         glEnable(GL_LIGHT0);
-        glEnable(GL_LIGHT1);  // Additional light source
+        glEnable(GL_LIGHT1);
         
         // Main light (sun-like)
         GLfloat lightPos[] = {100.0f, 100.0f, 100.0f, 1.0f};
         GLfloat lightAmbient[] = {0.3f, 0.3f, 0.3f, 1.0f};
-        GLfloat lightDiffuse[] = {1.0f, 1.0f, 0.9f, 1.0f};  // Slightly warm
+        GLfloat lightDiffuse[] = {1.0f, 1.0f, 0.9f, 1.0f};
         GLfloat lightSpecular[] = {1.0f, 1.0f, 1.0f, 1.0f};
         
         glLightfv(GL_LIGHT0, GL_POSITION, lightPos);
@@ -173,7 +175,7 @@ void toggleAdvancedLighting() {
         // Secondary light (fill light)
         GLfloat light1Pos[] = {-50.0f, 50.0f, -50.0f, 1.0f};
         GLfloat light1Ambient[] = {0.1f, 0.1f, 0.1f, 1.0f};
-        GLfloat light1Diffuse[] = {0.4f, 0.4f, 0.5f, 1.0f};  // Slightly cool
+        GLfloat light1Diffuse[] = {0.4f, 0.4f, 0.5f, 1.0f};
         GLfloat light1Specular[] = {0.3f, 0.3f, 0.3f, 1.0f};
         
         glLightfv(GL_LIGHT1, GL_POSITION, light1Pos);
@@ -181,10 +183,7 @@ void toggleAdvancedLighting() {
         glLightfv(GL_LIGHT1, GL_DIFFUSE, light1Diffuse);
         glLightfv(GL_LIGHT1, GL_SPECULAR, light1Specular);
         
-        // Enable shadows
-        shadowsEnabled = true;
-        
-        // Material properties for better lighting
+        // Material properties
         GLfloat matAmbient[] = {0.7f, 0.7f, 0.7f, 1.0f};
         GLfloat matDiffuse[] = {0.8f, 0.8f, 0.8f, 1.0f};
         GLfloat matSpecular[] = {0.5f, 0.5f, 0.5f, 1.0f};
@@ -195,32 +194,26 @@ void toggleAdvancedLighting() {
         glMaterialfv(GL_FRONT, GL_SPECULAR, matSpecular);
         glMaterialfv(GL_FRONT, GL_SHININESS, matShininess);
         
+        // Ensure color tracking is disabled when using materials
+        glDisable(GL_COLOR_MATERIAL);
+        
     } else {
-        // Basic lighting settings
-        glDisable(GL_LIGHT1);
-        
-        // Reset to basic light
-        GLfloat basicLight[] = {0.7f, 0.7f, 0.7f, 1.0f};
-        GLfloat basicPos[] = {1.0f, 1.0f, 1.0f, 0.0f};
-        
-        glLightfv(GL_LIGHT0, GL_POSITION, basicPos);
-        glLightfv(GL_LIGHT0, GL_AMBIENT, basicLight);
-        glLightfv(GL_LIGHT0, GL_DIFFUSE, basicLight);
-        
-        // Disable shadows
-        shadowsEnabled = false;
-        
-        // Reset material properties
-        GLfloat basicMaterial[] = {0.8f, 0.8f, 0.8f, 1.0f};
-        glMaterialfv(GL_FRONT, GL_AMBIENT_AND_DIFFUSE, basicMaterial);
+        glDisable(GL_LIGHTING);
+        glEnable(GL_COLOR_MATERIAL);
+        glColor3f(0.8f, 0.8f, 0.8f);  // Default color when lighting is off
     }
+    glutPostRedisplay();
 }
-
 void applyMaterial(Material* mat) {
-    glMaterialfv(GL_FRONT, GL_AMBIENT, mat->ambient);
-    glMaterialfv(GL_FRONT, GL_DIFFUSE, mat->diffuse);
-    glMaterialfv(GL_FRONT, GL_SPECULAR, mat->specular);
-    glMaterialf(GL_FRONT, GL_SHININESS, mat->shininess);
+    if (advancedLighting) {
+        glMaterialfv(GL_FRONT, GL_AMBIENT, mat->ambient);
+        glMaterialfv(GL_FRONT, GL_DIFFUSE, mat->diffuse);
+        glMaterialfv(GL_FRONT, GL_SPECULAR, mat->specular);
+        glMaterialf(GL_FRONT, GL_SHININESS, mat->shininess);
+    } else {
+        // Use simple color in basic mode
+        glColor3f(mat->diffuse[0], mat->diffuse[1], mat->diffuse[2]);
+    }
 }
 
 void drawWindow() {
@@ -467,7 +460,13 @@ void drawRoof() {
 }
 
 void drawFloor(float y) {
-    applyMaterial(&materials[currentMaterial]);
+    if (advancedLighting) {
+        // Use materials when advanced lighting is on
+        applyMaterial(&materials[currentMaterial]);
+    } else {
+        // Use basic color when advanced lighting is off
+        glColor3f(0.8f, 0.8f, 0.8f);  // Light gray color
+    }
     
     glPushMatrix();
     glTranslatef(0, y, 0);
@@ -646,6 +645,8 @@ void drawBuilding() {
     glPopMatrix();
 }
 void display() {
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glLoadIdentity();
     // First handle shadow pass if enabled
     if (shadowsEnabled) {
         // First pass: Render from light's perspective (shadow map)
@@ -702,14 +703,6 @@ void display() {
     // Enable lighting for the building
     if (advancedLighting) {
         glEnable(GL_LIGHTING);
-        
-        // Apply shadow texture if enabled
-        if (shadowsEnabled) {
-            glActiveTexture(GL_TEXTURE1);
-            glBindTexture(GL_TEXTURE_2D, shadowMapTexture);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE_ARB, GL_COMPARE_R_TO_TEXTURE_ARB);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_FUNC_ARB, GL_LEQUAL);
-        }
     }
     
     // Draw the building
@@ -850,8 +843,19 @@ void init() {
     glLightfv(GL_LIGHT0, GL_DIFFUSE, lightDiffuse);
     glLightfv(GL_LIGHT0, GL_SPECULAR, lightSpecular);
 
-    initShadowMap();
+    //initShadowMap();
+    glLightModelfv(GL_LIGHT_MODEL_AMBIENT, globalAmbient);
+    // Initialize materials
+    GLfloat matAmb[] = {0.7f, 0.7f, 0.7f, 1.0f};
+    GLfloat matDiff[] = {0.8f, 0.8f, 0.8f, 1.0f};
+    GLfloat matSpec[] = {0.5f, 0.5f, 0.5f, 1.0f};
+    GLfloat matShin[] = {50.0f};
     
+    glMaterialfv(GL_FRONT, GL_AMBIENT, matAmb);
+    glMaterialfv(GL_FRONT, GL_DIFFUSE, matDiff);
+    glMaterialfv(GL_FRONT, GL_SPECULAR, matSpec);
+    glMaterialfv(GL_FRONT, GL_SHININESS, matShin);
+
     // Enhanced lighting setup
     glEnable(GL_LIGHTING);
     glEnable(GL_LIGHT0);
