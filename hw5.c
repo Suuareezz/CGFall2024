@@ -23,6 +23,11 @@ float windowWidth = 1.2f;
 float windowHeight = 1.8f;
 float windowSpacing = 3.0f;
 float roofHeight = 2.0f;
+bool showFrontWall = true;
+bool showBackWall = true;
+bool showLeftWall = true;
+bool showRightWall = true;
+bool showAllWalls = true;
 
 // Camera parameters
 float cameraDistance = 20.0f;
@@ -38,12 +43,12 @@ typedef struct {
 } Material;
 
 Material materials[] = {
-    // Concrete
-    {{0.4f, 0.4f, 0.4f, 1.0f}, 
-     {0.7f, 0.7f, 0.7f, 1.0f}, 
+    // Concrete (lighter gray)
+    {{0.6f, 0.6f, 0.6f, 1.0f}, 
+     {0.8f, 0.8f, 0.8f, 1.0f}, 
      {0.2f, 0.2f, 0.2f, 1.0f}, 
      10.0f},
-    // Brick
+    // Brick (more vibrant)
     {{0.45f, 0.25f, 0.15f, 1.0f}, 
      {0.75f, 0.35f, 0.25f, 1.0f}, 
      {0.1f, 0.1f, 0.1f, 1.0f}, 
@@ -52,7 +57,12 @@ Material materials[] = {
     {{0.2f, 0.3f, 0.4f, 0.6f}, 
      {0.4f, 0.5f, 0.6f, 0.6f}, 
      {0.9f, 0.9f, 0.9f, 1.0f}, 
-     96.0f}
+     96.0f},
+    // Roof material (darker, more visible)
+    {{0.3f, 0.3f, 0.4f, 1.0f}, 
+     {0.4f, 0.4f, 0.5f, 1.0f}, 
+     {0.2f, 0.2f, 0.2f, 1.0f}, 
+     15.0f}
 };
 
 int currentMaterial = 0;
@@ -84,24 +94,29 @@ void drawWindow() {
 void drawRoof() {
     if (!showRoof) return;
     
-    applyMaterial(&materials[0]); // Concrete material
+    applyMaterial(&materials[3]); // Use roof-specific material
+    
     glBegin(GL_TRIANGLES);
     // Front face
+    glNormal3f(0.0f, 0.5f, 1.0f);
     glVertex3f(-buildingWidth/2, 0, buildingLength/2);
     glVertex3f(buildingWidth/2, 0, buildingLength/2);
     glVertex3f(0, roofHeight, 0);
     
     // Back face
+    glNormal3f(0.0f, 0.5f, -1.0f);
     glVertex3f(-buildingWidth/2, 0, -buildingLength/2);
     glVertex3f(buildingWidth/2, 0, -buildingLength/2);
     glVertex3f(0, roofHeight, 0);
     
     // Left face
+    glNormal3f(-1.0f, 0.5f, 0.0f);
     glVertex3f(-buildingWidth/2, 0, -buildingLength/2);
     glVertex3f(-buildingWidth/2, 0, buildingLength/2);
     glVertex3f(0, roofHeight, 0);
     
     // Right face
+    glNormal3f(1.0f, 0.5f, 0.0f);
     glVertex3f(buildingWidth/2, 0, -buildingLength/2);
     glVertex3f(buildingWidth/2, 0, buildingLength/2);
     glVertex3f(0, roofHeight, 0);
@@ -114,44 +129,51 @@ void drawFloor(float y) {
     glPushMatrix();
     glTranslatef(0, y, 0);
     
-    // Draw all walls as complete quads for each floor
     glBegin(GL_QUADS);
-    // Front wall
-    glNormal3f(0, 0, 1);
-    glVertex3f(-buildingWidth/2, 0, buildingLength/2);
-    glVertex3f(buildingWidth/2, 0, buildingLength/2);
-    glVertex3f(buildingWidth/2, floorHeight, buildingLength/2);
-    glVertex3f(-buildingWidth/2, floorHeight, buildingLength/2);
+    // Draw walls based on toggles
+    if (showFrontWall && showAllWalls) {
+        // Front wall
+        glNormal3f(0, 0, 1);
+        glVertex3f(-buildingWidth/2, 0, buildingLength/2);
+        glVertex3f(buildingWidth/2, 0, buildingLength/2);
+        glVertex3f(buildingWidth/2, floorHeight, buildingLength/2);
+        glVertex3f(-buildingWidth/2, floorHeight, buildingLength/2);
+    }
     
-    // Back wall
-    glNormal3f(0, 0, -1);
-    glVertex3f(-buildingWidth/2, 0, -buildingLength/2);
-    glVertex3f(buildingWidth/2, 0, -buildingLength/2);
-    glVertex3f(buildingWidth/2, floorHeight, -buildingLength/2);
-    glVertex3f(-buildingWidth/2, floorHeight, -buildingLength/2);
+    if (showBackWall && showAllWalls) {
+        // Back wall
+        glNormal3f(0, 0, -1);
+        glVertex3f(-buildingWidth/2, 0, -buildingLength/2);
+        glVertex3f(buildingWidth/2, 0, -buildingLength/2);
+        glVertex3f(buildingWidth/2, floorHeight, -buildingLength/2);
+        glVertex3f(-buildingWidth/2, floorHeight, -buildingLength/2);
+    }
     
-    // Left wall
-    glNormal3f(-1, 0, 0);
-    glVertex3f(-buildingWidth/2, 0, -buildingLength/2);
-    glVertex3f(-buildingWidth/2, 0, buildingLength/2);
-    glVertex3f(-buildingWidth/2, floorHeight, buildingLength/2);
-    glVertex3f(-buildingWidth/2, floorHeight, -buildingLength/2);
+    if (showLeftWall && showAllWalls) {
+        // Left wall
+        glNormal3f(-1, 0, 0);
+        glVertex3f(-buildingWidth/2, 0, -buildingLength/2);
+        glVertex3f(-buildingWidth/2, 0, buildingLength/2);
+        glVertex3f(-buildingWidth/2, floorHeight, buildingLength/2);
+        glVertex3f(-buildingWidth/2, floorHeight, -buildingLength/2);
+    }
     
-    // Right wall
-    glNormal3f(1, 0, 0);
-    glVertex3f(buildingWidth/2, 0, -buildingLength/2);
-    glVertex3f(buildingWidth/2, 0, buildingLength/2);
-    glVertex3f(buildingWidth/2, floorHeight, buildingLength/2);
-    glVertex3f(buildingWidth/2, floorHeight, -buildingLength/2);
+    if (showRightWall && showAllWalls) {
+        // Right wall
+        glNormal3f(1, 0, 0);
+        glVertex3f(buildingWidth/2, 0, -buildingLength/2);
+        glVertex3f(buildingWidth/2, 0, buildingLength/2);
+        glVertex3f(buildingWidth/2, floorHeight, buildingLength/2);
+        glVertex3f(buildingWidth/2, floorHeight, -buildingLength/2);
+    }
     
-    // Floor (bottom)
+    // Floor and ceiling are always shown
     glNormal3f(0, -1, 0);
     glVertex3f(-buildingWidth/2, 0, -buildingLength/2);
     glVertex3f(buildingWidth/2, 0, -buildingLength/2);
     glVertex3f(buildingWidth/2, 0, buildingLength/2);
     glVertex3f(-buildingWidth/2, 0, buildingLength/2);
     
-    // Ceiling (top)
     glNormal3f(0, 1, 0);
     glVertex3f(-buildingWidth/2, floorHeight, -buildingLength/2);
     glVertex3f(buildingWidth/2, floorHeight, -buildingLength/2);
@@ -159,49 +181,56 @@ void drawFloor(float y) {
     glVertex3f(-buildingWidth/2, floorHeight, buildingLength/2);
     glEnd();
     
-    // Draw windows after walls
+    // Draw windows if walls are visible
     if (showWindows) {
         float xStart = -buildingWidth/2 + windowSpacing;
         float xEnd = buildingWidth/2 - windowSpacing;
         float windowY = (floorHeight - windowHeight)/2;
         
-        // Front windows
-        for (float x = xStart; x <= xEnd; x += windowSpacing + windowWidth) {
-            glPushMatrix();
-            glTranslatef(x, windowY, buildingLength/2);
-            drawWindow();
-            glPopMatrix();
+        if (showFrontWall && showAllWalls) {
+            // Front windows
+            for (float x = xStart; x <= xEnd; x += windowSpacing + windowWidth) {
+                glPushMatrix();
+                glTranslatef(x, windowY, buildingLength/2);
+                drawWindow();
+                glPopMatrix();
+            }
         }
         
-        // Back windows
-        for (float x = xStart; x <= xEnd; x += windowSpacing + windowWidth) {
-            glPushMatrix();
-            glTranslatef(x, windowY, -buildingLength/2);
-            glRotatef(180, 0, 1, 0);
-            drawWindow();
-            glPopMatrix();
+        if (showBackWall && showAllWalls) {
+            // Back windows
+            for (float x = xStart; x <= xEnd; x += windowSpacing + windowWidth) {
+                glPushMatrix();
+                glTranslatef(x, windowY, -buildingLength/2);
+                glRotatef(180, 0, 1, 0);
+                drawWindow();
+                glPopMatrix();
+            }
         }
         
-        // Side windows (if building is wide enough)
         float zStart = -buildingLength/2 + windowSpacing;
         float zEnd = buildingLength/2 - windowSpacing;
         
-        // Left side windows
-        for (float z = zStart; z <= zEnd; z += windowSpacing + windowWidth) {
-            glPushMatrix();
-            glTranslatef(-buildingWidth/2, windowY, z);
-            glRotatef(90, 0, 1, 0);
-            drawWindow();
-            glPopMatrix();
+        if (showLeftWall && showAllWalls) {
+            // Left side windows
+            for (float z = zStart; z <= zEnd; z += windowSpacing + windowWidth) {
+                glPushMatrix();
+                glTranslatef(-buildingWidth/2, windowY, z);
+                glRotatef(90, 0, 1, 0);
+                drawWindow();
+                glPopMatrix();
+            }
         }
         
-        // Right side windows
-        for (float z = zStart; z <= zEnd; z += windowSpacing + windowWidth) {
-            glPushMatrix();
-            glTranslatef(buildingWidth/2, windowY, z);
-            glRotatef(-90, 0, 1, 0);
-            drawWindow();
-            glPopMatrix();
+        if (showRightWall && showAllWalls) {
+            // Right side windows
+            for (float z = zStart; z <= zEnd; z += windowSpacing + windowWidth) {
+                glPushMatrix();
+                glTranslatef(buildingWidth/2, windowY, z);
+                glRotatef(-90, 0, 1, 0);
+                drawWindow();
+                glPopMatrix();
+            }
         }
     }
     
@@ -293,7 +322,7 @@ void keyboard(unsigned char key, int x, int y) {
     switch(key) {
         case 'm':
         case 'M':
-            currentMaterial = (currentMaterial + 1) % 2; // Cycle through wall materials
+            currentMaterial = (currentMaterial + 1) % 2;
             break;
         case 'w':
         case 'W':
@@ -302,6 +331,22 @@ void keyboard(unsigned char key, int x, int y) {
         case 'r':
         case 'R':
             showRoof = !showRoof;
+            break;
+        case 'a':
+        case 'A':
+            showAllWalls = !showAllWalls;
+            break;
+        case '1':
+            showFrontWall = !showFrontWall;
+            break;
+        case '2':
+            showBackWall = !showBackWall;
+            break;
+        case '3':
+            showLeftWall = !showLeftWall;
+            break;
+        case '4':
+            showRightWall = !showRightWall;
             break;
         case '+':
             if(numFloors < 20) {
