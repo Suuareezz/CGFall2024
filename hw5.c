@@ -34,6 +34,23 @@ float cameraDistance = 50.0f;
 float cameraAngleX = 0.0f;
 float cameraAngleY = 0.0f;
 
+// Add new parameters for stairs
+typedef struct {
+    float width;      // Width of staircase
+    float depth;      // Depth of each step
+    float height;     // Height of each step
+    float totalRun;   // Total horizontal distance
+    int numSteps;     // Number of steps
+} Staircase;
+
+Staircase stairs = {
+    .width = 2.0f,    // 2 meters wide
+    .depth = 0.3f,    // 30cm deep steps
+    .height = 0.1667f,// Standard step height (floor height / num steps)
+    .totalRun = 3.0f, // 3 meters total run
+    .numSteps = 18    // Number of steps per floor
+};
+
 // Materials
 typedef struct {
     float ambient[4];
@@ -79,6 +96,70 @@ void applyMaterial(Material* mat) {
     glMaterialfv(GL_FRONT, GL_DIFFUSE, mat->diffuse);
     glMaterialfv(GL_FRONT, GL_SPECULAR, mat->specular);
     glMaterialf(GL_FRONT, GL_SHININESS, mat->shininess);
+}
+
+void drawSteps() {
+    applyMaterial(&materials[0]); // Use concrete material for stairs
+    
+    float stepDepth = stairs.totalRun / stairs.numSteps;
+    
+    glBegin(GL_QUADS);
+    for(int i = 0; i < stairs.numSteps; i++) {
+        float x1 = -stairs.width/2;
+        float x2 = stairs.width/2;
+        float y1 = i * stairs.height;
+        float y2 = (i + 1) * stairs.height;
+        float z1 = i * stepDepth;
+        float z2 = (i + 1) * stepDepth;
+        
+        // Top of step
+        glNormal3f(0, 1, 0);
+        glVertex3f(x1, y2, z1);
+        glVertex3f(x2, y2, z1);
+        glVertex3f(x2, y2, z2);
+        glVertex3f(x1, y2, z2);
+        
+        // Front of step
+        glNormal3f(0, 0, 1);
+        glVertex3f(x1, y1, z2);
+        glVertex3f(x2, y1, z2);
+        glVertex3f(x2, y2, z2);
+        glVertex3f(x1, y2, z2);
+        
+        // Sides of step
+        glNormal3f(1, 0, 0);
+        glVertex3f(x2, y1, z1);
+        glVertex3f(x2, y1, z2);
+        glVertex3f(x2, y2, z2);
+        glVertex3f(x2, y2, z1);
+        
+        glNormal3f(-1, 0, 0);
+        glVertex3f(x1, y1, z1);
+        glVertex3f(x1, y1, z2);
+        glVertex3f(x1, y2, z2);
+        glVertex3f(x1, y2, z1);
+    }
+    glEnd();
+}
+
+
+void drawStaircase(float y) {
+    glPushMatrix();
+    
+    // Position stairs in the building
+    glTranslatef(buildingWidth/4, y, 0); // Place stairs on the right side
+    drawSteps();
+    
+    // Draw landing platform
+    glBegin(GL_QUADS);
+    glNormal3f(0, 1, 0);
+    glVertex3f(-stairs.width/2, floorHeight, stairs.totalRun);
+    glVertex3f(stairs.width/2, floorHeight, stairs.totalRun);
+    glVertex3f(stairs.width/2, floorHeight, stairs.totalRun + stairs.width);
+    glVertex3f(-stairs.width/2, floorHeight, stairs.totalRun + stairs.width);
+    glEnd();
+    
+    glPopMatrix();
 }
 
 void drawWindow() {
@@ -232,6 +313,56 @@ void drawFloor(float y) {
                 glPopMatrix();
             }
         }
+    }
+    
+    glPopMatrix();
+    // Draw staircase for all floors except the top floor
+    if (y < (numFloors - 1) * floorHeight) {
+        drawStaircase(y);
+    }
+    
+    // Add stair opening in floor above
+    if (y > 0) {  // Don't cut hole in ground floor
+        glPushMatrix();
+        glTranslatef(buildingWidth/4, y, 0);
+        
+        // Cut opening in floor for stairwell
+        // This is done by drawing a slightly darker section
+        glColor3f(0.3f, 0.3f, 0.3f);
+        glBegin(GL_QUADS);
+        glNormal3f(0, -1, 0);
+        glVertex3f(-stairs.width/2 - 0.3f, 0, 0);
+        glVertex3f(stairs.width/2 + 0.3f, 0, 0);
+        glVertex3f(stairs.width/2 + 0.3f, 0, stairs.totalRun + stairs.width);
+        glVertex3f(-stairs.width/2 - 0.3f, 0, stairs.totalRun + stairs.width);
+        glEnd();
+        
+        glPopMatrix();
+    }
+    
+    glPopMatrix();
+}
+
+// Add function to draw railings
+void drawRailing(float length) {
+    float railHeight = 0.9f;  // Standard railing height
+    float postSpacing = 1.0f; // Space between posts
+    
+    glPushMatrix();
+    
+    // Draw main handrail
+    glColor3f(0.4f, 0.4f, 0.4f);
+    glBegin(GL_LINES);
+    glVertex3f(0, railHeight, 0);
+    glVertex3f(0, railHeight, length);
+    glEnd();
+    
+    // Draw posts
+    for(float z = 0; z <= length; z += postSpacing) {
+        glBegin(GL_LINES);
+        glVertex3f(0, 0, z);
+        glVertex3f(0, railHeight, z);
+        glEnd();
     }
     
     glPopMatrix();
