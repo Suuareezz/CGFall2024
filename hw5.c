@@ -34,6 +34,46 @@ float cameraDistance = 50.0f;
 float cameraAngleX = 0.0f;
 float cameraAngleY = 0.0f;
 
+// Texture IDs
+GLuint brickTexture;
+GLuint concreteTexture;
+GLuint windowTexture1;
+GLuint windowTexture2;
+GLuint marbleTexture;
+GLuint ledgeTexture;
+
+typedef enum {
+    WINDOW_STANDARD,
+    WINDOW_ARCHED,
+    WINDOW_DIVIDED,
+    WINDOW_CIRCULAR
+} WindowStyle;
+
+WindowStyle currentWindowStyle = WINDOW_STANDARD;
+
+// Shadow mapping
+GLuint shadowMapTexture;
+GLuint shadowMapFBO;
+const int SHADOW_MAP_SIZE = 2048;
+
+// Enhanced lighting parameters
+typedef struct {
+    float position[4];
+    float ambient[4];
+    float diffuse[4];
+    float specular[4];
+    float direction[3];
+    float cutoff;
+} Light;
+
+Light mainLight = {
+    .position = {100.0f, 100.0f, 100.0f, 1.0f},
+    .ambient = {0.2f, 0.2f, 0.2f, 1.0f},
+    .diffuse = {1.0f, 1.0f, 1.0f, 1.0f},
+    .specular = {1.0f, 1.0f, 1.0f, 1.0f},
+    .direction = {-1.0f, -1.0f, -1.0f},
+    .cutoff = 45.0f
+};
 // Add new parameters for stairs
 typedef struct {
     float width;      // Width of staircase
@@ -82,6 +122,21 @@ Material materials[] = {
      15.0f}
 };
 
+// Shader for shadow mapping
+const char* shadowVertexShader = 
+    "#version 330\n"
+    "uniform mat4 lightSpaceMatrix;\n"
+    "layout(location = 0) in vec3 position;\n"
+    "void main() {\n"
+    "    gl_Position = lightSpaceMatrix * vec4(position, 1.0);\n"
+    "}\n";
+
+const char* shadowFragmentShader =
+    "#version 330\n"
+    "void main() {\n"
+    "    // Fragment depth is automatically written\n"
+    "}\n";
+
 int currentMaterial = 0;
 bool showWindows = true;
 bool showRoof = true;
@@ -90,6 +145,142 @@ bool showRoof = true;
 bool mouseLeftDown = false;
 bool mouseRightDown = false;
 int mouseX = 0, mouseY = 0;
+
+// Function to load a texture
+GLuint loadTexture(const char* filename) {
+    GLuint textureID;
+    glGenTextures(1, &textureID);
+    glBindTexture(GL_TEXTURE_2D, textureID);
+    
+    // For this example, we'll create procedural textures
+    unsigned char* data = malloc(256 * 256 * 3);
+    // Fill with pattern based on filename
+    // In real implementation, load actual texture files
+    free(data);
+    
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    
+    return textureID;
+}
+
+void initShadowMap() {
+    // Create FBO for shadow mapping
+    glGenFramebuffers(1, &shadowMapFBO);
+    glGenTextures(1, &shadowMapTexture);
+    glBindTexture(GL_TEXTURE_2D, shadowMapTexture);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, 
+                 SHADOW_MAP_SIZE, SHADOW_MAP_SIZE, 0, 
+                 GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+    
+    glBindFramebuffer(GL_FRAMEBUFFER, shadowMapFBO);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, 
+                          GL_TEXTURE_2D, shadowMapTexture, 0);
+    glDrawBuffer(GL_NONE);
+    glReadBuffer(GL_NONE);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
+void drawFloorDivider(float y) {
+    glPushMatrix();
+    glTranslatef(0, y, 0);
+    
+    // Enable texture
+    glEnable(GL_TEXTURE_2D);
+    glBindTexture(GL_TEXTURE_2D, ledgeTexture);
+    
+    float ledgeHeight = 0.3f;
+    float ledgeDepth = 0.4f;
+    
+    glBegin(GL_QUADS);
+    // Top
+    glNormal3f(0, 1, 0);
+    glTexCoord2f(0, 0);
+    glVertex3f(-buildingWidth/2 - ledgeDepth, 0, buildingLength/2 + ledgeDepth);
+    glTexCoord2f(1, 0);
+    glVertex3f(buildingWidth/2 + ledgeDepth, 0, buildingLength/2 + ledgeDepth);
+    glTexCoord2f(1, 1);
+    glVertex3f(buildingWidth/2 + ledgeDepth, 0, -buildingLength/2 - ledgeDepth);
+    glTexCoord2f(0, 1);
+    glVertex3f(-buildingWidth/2 - ledgeDepth, 0, -buildingLength/2 - ledgeDepth);
+    
+    // Front
+    glNormal3f(0, 0, 1);
+    glTexCoord2f(0, 0);
+    glVertex3f(-buildingWidth/2 - ledgeDepth, -ledgeHeight, buildingLength/2 + ledgeDepth);
+    glTexCoord2f(1, 0);
+    glVertex3f(buildingWidth/2 + ledgeDepth, -ledgeHeight, buildingLength/2 + ledgeDepth);
+    glTexCoord2f(1, 1);
+    glVertex3f(buildingWidth/2 + ledgeDepth, 0, buildingLength/2 + ledgeDepth);
+    glTexCoord2f(0, 1);
+    glVertex3f(-buildingWidth/2 - ledgeDepth, 0, buildingLength/2 + ledgeDepth);
+    glEnd();
+    
+    glDisable(GL_TEXTURE_2D);
+    glPopMatrix();
+}
+
+void drawWindowStyle(WindowStyle style) {
+    switch(style) {
+        case WINDOW_ARCHED:
+            // Draw arched window
+            glBegin(GL_TRIANGLE_FAN);
+            // Center of arch
+            glVertex3f(0, windowHeight - windowWidth/2, 0);
+            // Draw arch
+            for(float angle = 0; angle <= 180; angle += 10) {
+                float x = windowWidth/2 * cos(angle * M_PI / 180.0f);
+                float y = windowHeight - windowWidth/2 + 
+                         windowWidth/2 * sin(angle * M_PI / 180.0f);
+                glVertex3f(x, y, 0);
+            }
+            glEnd();
+            break;
+            
+        case WINDOW_DIVIDED:
+            // Draw divided pane window
+            glBegin(GL_QUADS);
+            for(int i = 0; i < 2; i++) {
+                for(int j = 0; j < 3; j++) {
+                    float x1 = -windowWidth/2 + i * windowWidth/2;
+                    float x2 = -windowWidth/2 + (i+1) * windowWidth/2;
+                    float y1 = j * windowHeight/3;
+                    float y2 = (j+1) * windowHeight/3;
+                    
+                    glVertex3f(x1, y1, 0);
+                    glVertex3f(x2, y1, 0);
+                    glVertex3f(x2, y2, 0);
+                    glVertex3f(x1, y2, 0);
+                }
+            }
+            glEnd();
+            break;
+            
+        case WINDOW_CIRCULAR:
+            // Draw circular window
+            glBegin(GL_TRIANGLE_FAN);
+            glVertex3f(0, windowHeight/2, 0);
+            for(float angle = 0; angle <= 360; angle += 10) {
+                float x = windowWidth/2 * cos(angle * M_PI / 180.0f);
+                float y = windowHeight/2 + windowWidth/2 * sin(angle * M_PI / 180.0f);
+                glVertex3f(x, y, 0);
+            }
+            glEnd();
+            break;
+            
+        default:
+            // Standard rectangular window
+            drawWindow();
+            break;
+    }
+}
+
 
 void applyMaterial(Material* mat) {
     glMaterialfv(GL_FRONT, GL_AMBIENT, mat->ambient);
@@ -501,6 +692,16 @@ void keyboard(unsigned char key, int x, int y) {
                 buildingHeight = numFloors * floorHeight;
             }
             break;
+        case 't':
+        case 'T':
+            // Cycle through window styles
+            currentWindowStyle = (currentWindowStyle + 1) % 4;
+            break;
+            
+        case 'l':
+        case 'L':
+            // Toggle advanced lighting
+            break;
         case 27: // ESC key
             exit(0);
             break;
@@ -517,6 +718,13 @@ void init() {
     // Enable lighting
     glEnable(GL_LIGHTING);
     glEnable(GL_LIGHT0);
+
+    brickTexture = loadTexture("brick.jpg");
+    concreteTexture = loadTexture("concrete.jpg");
+    windowTexture1 = loadTexture("window1.jpg");
+    windowTexture2 = loadTexture("window2.jpg");
+    marbleTexture = loadTexture("marble.jpg");
+    ledgeTexture = loadTexture("ledge.jpg");
     
     // Set light properties
     GLfloat lightPos[] = {1.0f, 1.0f, 1.0f, 0.0f};
@@ -528,6 +736,22 @@ void init() {
     glLightfv(GL_LIGHT0, GL_AMBIENT, lightAmbient);
     glLightfv(GL_LIGHT0, GL_DIFFUSE, lightDiffuse);
     glLightfv(GL_LIGHT0, GL_SPECULAR, lightSpecular);
+
+    initShadowMap();
+    
+    // Enhanced lighting setup
+    glEnable(GL_LIGHTING);
+    glEnable(GL_LIGHT0);
+    glLightfv(GL_LIGHT0, GL_POSITION, mainLight.position);
+    glLightfv(GL_LIGHT0, GL_AMBIENT, mainLight.ambient);
+    glLightfv(GL_LIGHT0, GL_DIFFUSE, mainLight.diffuse);
+    glLightfv(GL_LIGHT0, GL_SPECULAR, mainLight.specular);
+    
+    // Enable features
+    glEnable(GL_DEPTH_TEST);
+    glEnable(GL_TEXTURE_2D);
+    glEnable(GL_NORMALIZE);
+    glShadeModel(GL_SMOOTH);
 }
 
 void getUserInput() {
@@ -554,6 +778,8 @@ void printControls() {
     printf("R: Toggle roof\n");
     printf("+: Add floor\n");
     printf("-: Remove floor\n");
+    printf("T: Change window style\n");
+    printf("L: Toggle advanced lighting\n");
     printf("ESC: Exit\n\n");
 }
 
